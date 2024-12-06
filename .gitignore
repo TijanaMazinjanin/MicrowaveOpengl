@@ -1,0 +1,48 @@
+# Build directories
+/build/
+/bin/
+/obj/
+
+# Temporary files
+*.tmp
+*.log
+
+# Compiled object files and binaries
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# CMake build files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Generated project files
+*.vcxproj*
+*.sln
+*.xcodeproj
+*.user
+*.ncb
+*.opendb
+*.tlog
+
+# Other
+*.swp
+*.bak
+*.pyc
+*.class
+
+.vs
