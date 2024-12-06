@@ -163,6 +163,7 @@ void Microwave::Render()
 
 void Microwave::startTimer()
 {
+	this->stopTimer();
 	this->timerRunning = true;
 	timerThread = std::thread(&Microwave::runTimer, this);
 }
