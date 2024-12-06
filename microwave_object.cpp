@@ -28,11 +28,18 @@ void MicrowaveObject::DecraseOpacity(float step)
 		this->Color.a = 1.0f;
 }
 
+void MicrowaveObject::ChangeOpacity(float opacity)
+{
+	this->Color.a = opacity;
+}
+
 void MicrowaveObject::IncreaseOpacity(float step)
 {
 	this->Color.a -= step;
 	if (this->Color.a < 0.0f)
 		this->Color.a = 0.0f;
 }
+
+
 
 

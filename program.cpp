@@ -15,6 +15,9 @@ const unsigned int SCREEN_HEIGHT = 800;
 
 Microwave MicrowaveProgram(SCREEN_WIDTH, SCREEN_HEIGHT);
 
+const float targetFPS = 60.0f;
+const float frameTime = 1.0f / targetFPS;
+
 
 int main() {
 
@@ -56,6 +59,7 @@ int main() {
     float lastFrame = 0.0f;
 
     while (!glfwWindowShouldClose(window)) {
+        auto frameStart = std::chrono::high_resolution_clock::now();
 
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -71,6 +75,13 @@ int main() {
         MicrowaveProgram.Render();
 
         glfwSwapBuffers(window);
+
+        auto frameEnd = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> frameDuration = frameEnd - frameStart;
+
+        if (frameDuration.count() < frameTime) {
+            std::this_thread::sleep_for(std::chrono::duration<float>(frameTime - frameDuration.count()));
+        }
     }
 
 

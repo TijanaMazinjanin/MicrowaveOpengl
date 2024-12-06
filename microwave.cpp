@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 #include "microwave.h"
 #include "renderer.h"
@@ -7,11 +8,13 @@
 #include "ellipse_renderer.h"
 #include "text_renderer.h"
 #include "microwave_object.h"
+#include "particle_generator.h"
 
 using namespace std;
 
 
 Renderer *renderer;
+ParticleGenerator* particles;
 EllipseRenderer* elipseRenderer;
 TextRenderer* textRenderer;
 MicrowaveObject* microwaveWindow;
@@ -41,11 +44,14 @@ glm::vec3 lightOnColor = glm::vec3(1.0f, 0.8f, 0.0f);
 glm::vec3 lightOffColor = glm::vec3(0.6f, 0.6f, 0.6f);
 glm::vec3 lightColorCurrent = lightOffColor;
 
+float window_opacity = 0.3;
+
 Microwave::Microwave(unsigned int width, unsigned int height) : State(MICROWAVE_OFF), Keys(), Width(width), Height(height), currentMinutes(0), currentSeconds(0), timerRunning(false) {}
 
 Microwave::~Microwave()
 {
 	delete renderer;
+	delete particles;
 	delete elipseRenderer;
 	delete textRenderer;
 	delete microwaveWindow;
@@ -56,6 +62,7 @@ void Microwave::Init()
 {
 	ResourceManager::LoadShader("basic.vert", "basic.frag", NULL, "basic");
 	ResourceManager::LoadShader("ellipse.vert", "ellipse.frag", NULL, "ellipse");
+	ResourceManager::LoadShader("particles.vert", "particles.frag", nullptr, "particle");
 
 	glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(this->Width), static_cast<float>(this->Height), 0.0f, -1.0f, 1.0f);
 	
@@ -65,18 +72,23 @@ void Microwave::Init()
 	/*ResourceManager::GetShader("ellipse").Use().SetInteger("ellipse", 0);
 	ResourceManager::GetShader("ellipse").SetMatrix4("projection", projection);*/
 
+	ResourceManager::GetShader("particle").Use().SetInteger("sprite", 0);
+	ResourceManager::GetShader("particle").SetMatrix4("projection", projection);
+
 	ResourceManager::LoadTexture("assets/textures/stainlessSteelDark.jpg", true, "stainlessSteelDark");
 	ResourceManager::LoadTexture("assets/textures/stainlessSteelLightGray.jpg", true, "stainlessSteelLight");
 	ResourceManager::LoadTexture("assets/textures/glass.jpg", true, "glass");
 	ResourceManager::LoadTexture("assets/textures/food.png", true, "food");
+	ResourceManager::LoadTexture("assets/textures/particle.jpg", true, "particle");
 
 	renderer = new Renderer(ResourceManager::GetShader("basic"));
 	elipseRenderer = new EllipseRenderer(ResourceManager::GetShader("ellipse"), 30, 0.0f, 0.0f);
 	textRenderer = new TextRenderer(this->Width, this->Height);
 	textRenderer->Load("assets/fonts/OpenSans.ttf", 24);
+	particles = new ParticleGenerator(ResourceManager::GetShader("particle"), ResourceManager::GetTexture("particle"), 500);
 
-	microwaveWindow = new MicrowaveObject(ResourceManager::GetTexture("glass"), glm::vec2(300.0f, 300.0f), glm::vec2(500.0f, 270.0f), glm::vec4(1.0f, 1.0f, 1.0f, 0.3), glm::vec2(50.0f, 50.0f));
-	sceneCover = new MicrowaveObject(ResourceManager::GetTexture("glass"), glm::vec2(0, 0), glm::vec2(this->Width, this->Height), glm::vec4(0.1f, 0.1f, 0.1f, 0.1f));
+	microwaveWindow = new MicrowaveObject(ResourceManager::GetTexture("glass"), glm::vec2(300.0f, 300.0f), glm::vec2(500.0f, 270.0f), glm::vec4(1.0f, 1.0f, 1.0f, window_opacity), glm::vec2(50.0f, 50.0f));
+	sceneCover = new MicrowaveObject(ResourceManager::GetTexture("glass"), glm::vec2(0, 0), glm::vec2(this->Width, this->Height), glm::vec4(0.1f, 0.1f, 0.1f, 0.1f), glm::vec2(100.0f, -350.0f));
 	clockText = "00:00";
 
 	blinkTime = 0.0f;
@@ -141,6 +153,10 @@ void Microwave::Render()
 
 	std::string name = "Tijana Mazinjanin SV41/2021";
 	textRenderer->RenderText(name, this->Width - 350, this->Height - 30, 1.0f);
+
+	if (this->State == MICROWAVE_BROKEN) {
+		particles->Draw();
+	}
 	
 }
 
@@ -156,6 +172,7 @@ void Microwave::runTimer()
 	while (this->timerRunning) {
 		if (currentMinutes == 0 && currentSeconds == 0) {
 			this->timerRunning = false;
+			lightColorCurrent = lightOnColor;
 			break;
 		}
 
@@ -169,7 +186,12 @@ void Microwave::runTimer()
 			currentSeconds--;
 		}
 
-		clockText = std::to_string(this->currentMinutes) + ":" + std::to_string(this->currentSeconds);
+		std::ostringstream clockStream;
+		clockStream << std::setw(2) << std::setfill('0') << this->currentMinutes
+			<< ":"
+			<< std::setw(2) << std::setfill('0') << this->currentSeconds;
+
+		clockText = clockStream.str();
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
@@ -206,12 +228,21 @@ void Microwave::ProcessInput(float dt)
 	{
 		this->Restart();
 	}
+	if (this->Keys[GLFW_KEY_D])
+	{
+		microwaveWindow->ChangeOpacity(1.0f);
+	}
+	if (this->Keys[GLFW_KEY_L])
+	{
+		microwaveWindow->ChangeOpacity(0.3f);
+	}
 }
 
 void Microwave::Update(float dt)
 {
-	if (this->State == MICROWAVE_ON) {
-		blinkTimeLight += 0.001;
+
+	if (this->State == MICROWAVE_ON && clockText=="00:00") {
+		blinkTimeLight += 0.01;
 		if (blinkTimeLight >= blinkIntervalLight) {
 			blinkTimeLight = 0.0f;
 		}
@@ -225,6 +256,7 @@ void Microwave::Update(float dt)
 		
 	if (this->State == MICROWAVE_DOOR_OPENING) {
 		microwaveWindow->Move(-dt, 100, 300);
+		lightColorCurrent = lightOffColor;
 	}
 
 	if (this->State == MICROWAVE_DOOR_CLOSING) {
@@ -232,6 +264,7 @@ void Microwave::Update(float dt)
 	}
 
 	if (this->State == MICROWAVE_BROKEN) {
+		//particles->Update(dt, glm::vec2(this->Width, this->Height), 2, glm::vec2(-10.0f));
 		blinkTime += 0.09;
 		if (blinkTime >= blinkInterval) {
 			blinkTime = 0.0f;
@@ -241,11 +274,11 @@ void Microwave::Update(float dt)
 			clockText = "ERROR";
 		}
 
-		sceneCover->DecraseOpacity(0.00005f);
+		sceneCover->DecraseOpacity(0.005f);
 		
 	}
 	if (this->State == MICROWAVE_SERVICE) {
-		sceneCover->IncreaseOpacity(0.00005f);
+		sceneCover->IncreaseOpacity(0.005f);
 	}
 }
 
@@ -262,6 +295,8 @@ void Microwave::TurnOffMicrowave()
 	this->State = MICROWAVE_OFF;
 	lightColorCurrent = lightOffColor;
 	clockText = "00:00";
+	minute1 = 0; minute2 = 0; second1 = 0; second2 = 0;
+	stopTimer();
 }
 
 void Microwave::TurnOnMicrowave()
@@ -271,7 +306,6 @@ void Microwave::TurnOnMicrowave()
 			return;
 
 		this->State = MICROWAVE_ON;
-		lightColorCurrent = lightOnColor;
 		this->startTimer();
 	}
 	
@@ -292,6 +326,7 @@ void UpdateClock(int number) {
 	
 	else if (clickCount == 4) { second2 = number; clickCount = 0; }
 	
+
 	clockText = std::to_string(minute1) + std::to_string(minute2) + ":" +
 		std::to_string(second1) + std::to_string(second2);
 }
@@ -308,9 +343,6 @@ void Microwave::ProcessMouseButtonPressed(double xpos, double ypos)
 				int number = row * 3 + col + 1;
 				std::cout << "Rectangle " << number << " clicked!" << std::endl;
 				UpdateClock(number);
-				this->currentMinutes = minute1 * 10 + minute2;
-				this->currentSeconds = second1 * 10 + second1;
-				
 			}
 
 		}
@@ -324,6 +356,9 @@ void Microwave::ProcessMouseButtonPressed(double xpos, double ypos)
 		UpdateClock(0);
 	}
 
+	this->currentMinutes = minute1 * 10 + minute2;
+	this->currentSeconds = second1 * 10 + second2;
+
 	float startStartX = startXKeyboard + keyWidth + spacing;
 	float startStartY = startZeroY;
 
@@ -336,16 +371,20 @@ void Microwave::ProcessMouseButtonPressed(double xpos, double ypos)
 	if (IsPointInsideRect(xpos, ypos, startXKeyboard, startStartY + keyHeight + spacing, keyWidth, keyHeight)) {
 		std::cout << "Rectangle RESET clicked!" << std::endl;
 		this->State = MICROWAVE_OFF;
-		clockText = "00:00";
+		this->TurnOffMicrowave();
+		/*clockText = "00:00";
 		this->currentMinutes = 0;
 		this->currentSeconds = 0;
 		clickCount = 0;
 		minute1 = 0; minute2 = 0; second1 = 0; second2 = 0;
+		this->stopTimer();*/
 	}
 
 	if (IsPointInsideRect(xpos, ypos, startXKeyboard+spacing+keyWidth, startStartY + keyHeight + spacing, keyWidth * 2, keyHeight)) {
 		std::cout << "Rectangle STOP clicked!" << std::endl;
 		this->State = MICROWAVE_OFF;
+		minute1 = 0; minute2 = 0; second1 = 0; second2 = 0;
+		clickCount = 0;
 		this->stopTimer();
 	}
 }

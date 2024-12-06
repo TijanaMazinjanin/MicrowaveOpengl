@@ -25,4 +25,5 @@ public:
     glm::vec2 Move(float dt, unsigned int maxHeight, unsigned int maxWidth);
     void IncreaseOpacity(float step);
     void DecraseOpacity(float step);
+    void ChangeOpacity(float opacity);
 };
